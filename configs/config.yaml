@@ -1,0 +1,86 @@
+# Vehicle Detection, Tracking & Counting
+# Project Configuration
+
+# Paths
+paths:
+  video_input: "data/videos/traffic.mp4"
+  output_dir: "outputs/"
+  model_weights: "models/best.pt"       # fine-tuned YOLOv8 (After Phase 2)
+  pretrained_weights: "yolov8n.pt"      # Phase 2 for training
+
+#  Video
+video:
+  frame_skip: 2          # processing every 2nd frame for better speed
+  resize_width: 1280     # processing width
+  resize_height: 720     # processing height
+  fps_output: 30         # output video FPS
+
+# Classical DIP (Phase 1)
+classical:
+  gaussian_blur_kernel: 5       # Blur kernel size (must be an odd number)
+  mog2_history: 500             # Number of frames used for the background model
+  mog2_var_threshold: 50        # Foreground sensitivity (higher value = less noise)
+  mog2_detect_shadows: true     # Detect shadows separately
+  dilate_iterations: 2          # Number of dilation iterations
+  erode_iterations: 1           # Number of erosion iterations
+  min_contour_area: 1500        # Minimum area to filter out small objects (e.g., people, birds)
+  max_contour_area: 150000      # Maximum area to filter out very large noise
+
+#  YOLOv8 Detection (Phase 2+)
+detection:
+  confidence_threshold: 0.4     # Detection confidence threshold (0-1)
+  iou_threshold: 0.5            # Non-Maximum Suppression (NMS) overlap threshold
+  input_size: 640               # YOLOv8 input image resolution
+  device: "cpu"                 # Execution device: "cpu" or "cuda" (for GPU acceleration)
+
+# Vehicle Classes
+classes:
+  names:
+    0: "car"
+    1: "truck"
+    2: "bus"
+    3: "motorbike"
+    4: "rickshaw"
+    5: "auto_rickshaw"
+    6: "van"
+    7: "minibus"
+    8: "pickup"
+    9: "scooter"
+  # Only include these classes in the final count
+  count_classes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# Counting Line (Phase 4)
+counting:
+  line_position: 0.5      # Fraction of frame height (0.5 = middle)
+  line_color: [0, 255, 0] # BGR green (Note: OpenCV uses BGR format)
+  line_thickness: 2
+  direction_up: "IN"      # Crossing the line moving upwards = IN
+  direction_down: "OUT"   # Crossing the line moving downwards = OUT
+
+# Visualization
+visualization:
+  box_thickness: 2
+  font_scale: 0.6
+  show_confidence: true
+  show_track_id: true
+  show_class_label: true
+  colors:                 # per-class colors (BGR)
+    car:           [0, 255, 0]
+    truck:         [0, 0, 255]
+    bus:           [255, 165, 0]
+    motorbike:     [255, 0, 255]
+    rickshaw:      [0, 255, 255]
+    auto_rickshaw: [255, 255, 0]
+    van:           [128, 0, 255]
+    minibus:       [0, 128, 255]
+    pickup:        [255, 128, 0]
+    scooter:       [128, 255, 0]
+
+# Training (Phase 2 - Kaggle)
+training:
+  data_yaml: "Vehicle-Detection-13/data.yaml"
+  model: "yolov8n.pt"
+  epochs: 50
+  batch_size: 16
+  image_size: 640
+  project_name: "vehicle_finetune"
