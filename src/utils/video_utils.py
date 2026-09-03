@@ -1,7 +1,7 @@
 import cv2
 import yaml
 import os
-
+import argparse
 
 def load_config(config_path="configs/config.yaml"):
     """
@@ -91,3 +91,45 @@ def release_resources(*resources):
         if resource is not None:
             resource.release()
     cv2.destroyAllWindows()
+
+def get_video_path_from_args(config, default_key="video_input"):
+    """
+    Lets us pick which video to process from the command line, e.g.:
+        python scripts/run_classical.py --video data/videos/traffic2.mp4
+    If no --video is passed, it falls back to config.yaml's default path.
+
+    WHY WE NEED THIS:
+    You have two test videos (traffic.mp4, traffic2.mp4) and you'll want
+    to re-run every phase (classical, YOLO, tracking, counting) on both.
+    Editing config.yaml every time you switch videos is slow and easy to
+    forget. A CLI flag lets you run both in two commands without touching
+    any file.
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--video",
+        type=str,
+        default=None,
+        help="Path to input video. Overrides config.yaml's paths.video_input"
+    )
+    args, _ = parser.parse_known_args()
+    # parse_known_args (not parse_args) so this doesn't break if a script
+    # adds its own extra CLI args later — unknown ones are just ignored here.
+
+    if args.video:
+        return args.video
+    return config["paths"][default_key]
+
+
+def get_output_path(output_dir, video_path, suffix):
+    """
+    Builds an output filename that includes the input video's name, so
+    results from traffic.mp4 and traffic2.mp4 never overwrite each other.
+
+    Example:
+        video_path = "data/videos/traffic2.mp4", suffix = "classical_output"
+        -> "outputs/traffic2_classical_output.mp4"
+    """
+    video_name = os.path.splitext(os.path.basename(video_path))[0]
+    filename = f"{video_name}_{suffix}.mp4"
+    return os.path.join(output_dir, filename)
