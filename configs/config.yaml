@@ -36,18 +36,14 @@ detection:
 # Vehicle Classes
 classes:
   names:
-    0: "car"
-    1: "truck"
-    2: "bus"
-    3: "motorbike"
+    0: "bus"
+    1: "car"
+    2: "motorcycle"
+    3: "person"
     4: "rickshaw"
-    5: "auto_rickshaw"
-    6: "van"
-    7: "minibus"
-    8: "pickup"
-    9: "scooter"
-  # Only include these classes in the final count
-  count_classes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    5: "truck"
+
+  count_classes: [0, 1, 2, 4, 5]
 
 # Counting Line (Phase 4)
 counting:
@@ -64,21 +60,17 @@ visualization:
   show_confidence: true
   show_track_id: true
   show_class_label: true
-  colors:                 # per-class colors (BGR)
-    car:           [0, 255, 0]
-    truck:         [0, 0, 255]
-    bus:           [255, 165, 0]
-    motorbike:     [255, 0, 255]
-    rickshaw:      [0, 255, 255]
-    auto_rickshaw: [255, 255, 0]
-    van:           [128, 0, 255]
-    minibus:       [0, 128, 255]
-    pickup:        [255, 128, 0]
-    scooter:       [128, 255, 0]
+  colors:                 # per-class colors (BGR), keys match classes.names values
+    bus:        [255, 165, 0]
+    car:        [0, 255, 0]
+    motorcycle: [255, 0, 255]
+    person:     [0, 165, 255]
+    rickshaw:   [0, 255, 255]
+    truck:      [0, 0, 255]
 
 # Training (Phase 2 - Kaggle)
 training:
-  data_yaml: "Vehicle-Detection-13/data.yaml"
+  data_yaml: "/kaggle/working/Vehicle-Detection-13/data.yaml"
   model: "yolov8n.pt"
   epochs: 50
   batch_size: 16
