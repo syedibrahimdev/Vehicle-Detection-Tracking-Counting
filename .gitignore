@@ -1,10 +1,15 @@
-.venv/
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Python cache
 __pycache__/
-*.pt
-*.mp4
-*.avi
-data/
-outputs/
+*.py[cod]
+
+# Datasets and large model files (optional, if they exceed GitHub's limits)
+datasets/
+models/*.pt
 runs/
-*.pyc
-.idea/
+outputs/
