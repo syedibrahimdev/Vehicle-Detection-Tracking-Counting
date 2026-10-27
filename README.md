@@ -124,28 +124,40 @@ Higher input resolution helped most: the footage mixes 1920×1080, 1280×720 and
 - **Stress test.** An earlier run with a much stricter scene-level grouping, which kept only about a third of the training images, scored **0.47 mAP50 / 0.25 mAP50-95** on a nearly identical test set. That run also trained on far less data, so it is a lower bound — but it shows that generalizing to new scenes is the main risk.
 - **Rare classes.** Truck (47 test boxes) and bus (72) have wide confidence intervals, and truck recall (0.21) is no better than COCO's. Treat truck as an open problem and expect bus to be unreliable.
 
-## 🎯 Counting Accuracy
+## 🎯 Counting
 
-Detector metrics do not say how accurate the *counts* are, which is what the system is for. Counting is evaluated against hand-counted ground truth:
+Detector metrics do not say how accurate the *counts* are, which is what the system is for.
+
+### Example runs
+
+Two 2-minute clips (7,200 frames each, 60 fps source) processed with the full pipeline on every frame at 1280 px width. IN = crossing upward, OUT = crossing downward. Persons are detected but not counted.
+
+| Class | Clip 1 (IN / OUT) | Clip 2 (IN / OUT) |
+|---|---|---|
+| Car | 18 / 30 | 29 / 24 |
+| Motorcycle | 40 / 132 | 33 / 34 |
+| Rickshaw | 9 / 36 | 26 / 21 |
+| Truck | 4 / 4 | 8 / 5 |
+| Bus | 0 / 2 | 2 / 0 |
+| **Total** | **71 / 204** | **98 / 84** |
+
+End-to-end speed was about 6.3 fps on both clips, including video decoding and rendering; it depends on your hardware.
+
+> These are raw pipeline outputs. They have **not** been validated against hand-counted ground truth, so they show that the pipeline runs end to end, not that the counts are accurate.
+
+### Measuring count accuracy
+
+The repository includes the tooling to validate counts. Tally a clip by hand with the same counting line the pipeline uses, run the pipeline on it, and compare:
 
 ```bash
-python scripts/run_pipeline.py --mode full --video data/videos/traffic.mp4 --no-video
+python scripts/tally_counts.py --video data/videos/clip1.mp4 --out data/ground_truth/clip1.json
+python scripts/run_pipeline.py --mode full --video data/videos/clip1.mp4 --no-video
 python scripts/evaluate_counts.py \
-    --pred outputs/traffic_full_output_counts.json \
-    --gt   data/ground_truth/traffic.json
+    --pred outputs/clip1_full_output_counts.json \
+    --gt   data/ground_truth/clip1.json
 ```
 
-The ground-truth file has the same shape as the pipeline's counts, e.g. `{"car": {"IN": 41, "OUT": 37}, "rickshaw": {"IN": 12, "OUT": 9}}`. The script reports per-class and overall absolute count error.
-
-<!--
-Fill in after hand-counting 2-3 clips, then uncomment:
-
-| Method | Total GT | Total predicted | Weighted abs. error |
-|---|---|---|---|
-| Classical MOG2 | | | |
-| YOLOv8s pretrained (COCO) | | | |
-| Fine-tuned YOLOv8s + ByteTrack | | | |
--->
+`tally_counts.py` plays the clip at reduced speed; press a key per crossing (lowercase = IN, UPPERCASE = OUT; `c` car, `m` motorcycle, `r` rickshaw, `t` truck, `b` bus; `u` undo, `q` save). `evaluate_counts.py` prints per-class and overall absolute count error.
 
 ## 🚀 Getting Started
 
@@ -229,7 +241,8 @@ Vehicle-Detection-Tracking-Counting/
 │
 ├── scripts/
 │   ├── run_pipeline.py            # single CLI: classical | yolo | full
-│   └── evaluate_counts.py         # predicted vs hand-counted ground truth
+│   ├── evaluate_counts.py         # predicted vs hand-counted ground truth
+│   └── tally_counts.py            # interactive tool to hand-count a clip
 │
 ├── notebooks/
 │   └── training.ipynb             # reproducible training and evaluation
@@ -260,10 +273,11 @@ The tests cover the counting logic (single count per track, direction, pedestria
 ## ⚠️ Limitations
 
 - **Fixed camera, single horizontal line.** Vehicles are counted when their centre crosses the line; there is no polygon zone and no support for a moving camera.
-- **ID switches.** If the tracker assigns a new ID after an occlusion, that vehicle can be counted twice or missed. Counting accuracy against hand-counted clips is the measure of this.
+- **Counting accuracy is not yet validated.** The pipeline's counts have not been compared with hand-counted ground truth (the tooling is included, see above).
+- **ID switches.** If the tracker assigns a new ID after an occlusion, that vehicle can be counted twice or missed; count error against ground truth is the measure of this.
 - **Truck and bus** detection is weak (see above), and the dataset is small (about 400 source images).
 - **Scene generalization** is untested beyond the dataset's own distribution.
-- **Speed.** The 960 px model is real-time on a T4 GPU but not on CPU; measure on your hardware before relying on it.
+- **Speed.** The detector alone runs at 14.2 ms/image on a T4, but the full pipeline processed the 60 fps sample clips at about 6 fps end to end. It is not real-time on every frame; measure on your hardware before relying on it.
 
 ## 🔧 Tech Stack
 
@@ -282,7 +296,8 @@ The tests cover the counting logic (single count per track, direction, pedestria
 - [x] ByteTrack tracking + per-class, per-direction line counter
 - [x] Label repair, de-duplicated split, confidence intervals, reproducible notebook
 - [x] Unit tests for counting and evaluation logic
-- [ ] Hand-counted counting benchmark (count error per class)
+- [x] Tooling for hand-counted ground truth and count-error evaluation
+- [ ] Run the counting benchmark: count error per class on hand-counted clips
 - [ ] Per-class confidence thresholds for bus and truck
 - [ ] Polygon counting zones and multiple lines
 - [ ] ONNX export and CPU speed benchmark
