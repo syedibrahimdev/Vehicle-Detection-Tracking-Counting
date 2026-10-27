@@ -13,3 +13,5 @@ datasets/
 models/*.pt
 runs/
 outputs/
+data/videos/
+.pytest_cache/

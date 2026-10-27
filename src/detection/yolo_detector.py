@@ -1,86 +1,85 @@
-from ultralytics import YOLO
+import logging
+from pathlib import Path
+
+from src.detection.labels import resolve_class_names
+
+logger = logging.getLogger(__name__)
+
+
+def result_to_boxes(result, class_names):
+    """Convert one Ultralytics result into the project's box dicts.
+
+    Shared by YoloDetector.detect() and VehicleTracker.track() so the
+    two cannot drift apart. `track_id` is None unless the result came
+    from model.track() and the tracker assigned IDs.
+    """
+    boxes = result.boxes
+    if boxes is None or len(boxes) == 0:
+        return []
+
+    xyxy = boxes.xyxy.cpu().numpy()
+    confs = boxes.conf.cpu().numpy()
+    classes = boxes.cls.cpu().numpy().astype(int)
+    ids = boxes.id.cpu().numpy().astype(int) if boxes.id is not None else None
+
+    out = []
+    for i in range(len(xyxy)):
+        x1, y1, x2, y2 = xyxy[i]
+        class_id = int(classes[i])
+        out.append({
+            "x1": int(x1), "y1": int(y1), "x2": int(x2), "y2": int(y2),
+            "label": class_names.get(class_id, f"class_{class_id}"),
+            "confidence": float(confs[i]),
+            "track_id": int(ids[i]) if ids is not None else None,
+            "class_id": class_id,
+        })
+    return out
 
 
 class YoloDetector:
-    """
-    Wraps Ultralytics YOLOv8 for vehicle detection.
-
-    WHY A WRAPPER CLASS INSTEAD OF CALLING YOLO() DIRECTLY IN THE SCRIPT:
-    Same reason as ClassicalDetector — keeps run_yolo.py clean, and lets
-    us swap the underlying model (pretrained -> fine-tuned) without
-    touching the script that calls it. Also gives classical and YOLO
-    detectors the same detect(frame) -> boxes interface, so counter.py
-    and tracker.py can work with either one later.
-    """
+    """Wraps Ultralytics YOLO. detect(frame) -> list of box dicts."""
 
     def __init__(self, config):
+        # Imported here so classical mode and the unit tests do not need
+        # torch/ultralytics installed.
+        from ultralytics import YOLO
+
         det_cfg = config["detection"]
         paths_cfg = config["paths"]
 
-        # Use fine-tuned weights if they exist, otherwise fall back to
-        # the plain pretrained model. This means this exact file keeps
-        # working before AND after you finish fine-tuning in Kaggle.
-        import os
-        weights_path = paths_cfg["model_weights"]
-        if not os.path.exists(weights_path):
-            print(f"[YoloDetector] Fine-tuned weights not found at "
-                  f"{weights_path}, falling back to pretrained "
-                  f"{paths_cfg['pretrained_weights']}")
-            weights_path = paths_cfg["pretrained_weights"]
+        weights = Path(paths_cfg["model_weights"])
+        if weights.exists():
+            weights_path = weights
+        elif det_cfg.get("allow_pretrained_fallback", False):
+            weights_path = Path(paths_cfg["pretrained_weights"])
+            logger.warning(
+                "Fine-tuned weights not found at %s; falling back to %s. "
+                "Results will NOT reflect the fine-tuned model "
+                "(no rickshaw class).", weights, weights_path)
+        else:
+            raise FileNotFoundError(
+                f"Fine-tuned weights not found at '{weights}'. Download "
+                "best.pt from the GitHub release into that path, or set "
+                "detection.allow_pretrained_fallback: true to use COCO "
+                "weights deliberately.")
 
-        self.model = YOLO(weights_path)
+        self.weights_path = str(weights_path)
+        self.model = YOLO(self.weights_path)
+        self.class_names = resolve_class_names(
+            self.model.names, config["classes"]["names"])
 
         self.conf_threshold = det_cfg["confidence_threshold"]
         self.iou_threshold = det_cfg["iou_threshold"]
         self.input_size = det_cfg["input_size"]
         self.device = det_cfg["device"]
 
-        # class-index -> name mapping, only used when we're on the
-        # fine-tuned model (pretrained COCO model has its own names,
-        # accessed via self.model.names instead — see detect() below)
-        self.class_names = config["classes"]["names"]
-        self.using_finetuned = "best" in os.path.basename(weights_path)
-
     def detect(self, frame):
-        """
-        Runs YOLOv8 inference on a single frame.
-        Returns a list of boxes in the SAME dict format ClassicalDetector
-        uses, so the rest of the pipeline (visualizer, counter, tracker)
-        doesn't need to know which detector produced them.
-        """
         results = self.model.predict(
             frame,
             conf=self.conf_threshold,
             iou=self.iou_threshold,
             imgsz=self.input_size,
             device=self.device,
-            verbose=False   # suppress ultralytics' own per-frame console spam
+            verbose=False,
         )
-
-        boxes = []
-        result = results[0]  # predict() on a single frame returns a list of length 1
-
-        for box in result.boxes:
-            x1, y1, x2, y2 = box.xyxy[0].tolist()
-            confidence = float(box.conf[0])
-            class_id = int(box.cls[0])
-
-            # If using the fine-tuned model, its own names (from data.yaml)
-            # are authoritative. If still on pretrained COCO, use the
-            # model's built-in COCO names instead of our custom class list,
-            # since COCO doesn't have "rickshaw" etc.
-            if self.using_finetuned:
-                label = self.class_names.get(class_id, f"class_{class_id}")
-            else:
-                label = self.model.names.get(class_id, f"class_{class_id}")
-
-            boxes.append({
-                "x1": int(x1), "y1": int(y1),
-                "x2": int(x2), "y2": int(y2),
-                "label": label,
-                "confidence": confidence,
-                "track_id": None,   # tracking comes in Phase 3
-                "class_id": class_id
-            })
-
-        return boxes
+        return result_to_boxes(results[0], self.class_names)

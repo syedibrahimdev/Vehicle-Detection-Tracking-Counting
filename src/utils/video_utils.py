@@ -133,3 +133,17 @@ def get_output_path(output_dir, video_path, suffix):
     video_name = os.path.splitext(os.path.basename(video_path))[0]
     filename = f"{video_name}_{suffix}.mp4"
     return os.path.join(output_dir, filename)
+
+def resize_to_width(frame, width):
+    """
+    Resizes to a target width while KEEPING the aspect ratio (height is
+    rounded down to an even number, which mp4 encoders require). The old
+    fixed 1280x720 resize stretched any non-16:9 video.
+    """
+    h, w = frame.shape[:2]
+    if w == width:
+        return frame
+    new_h = int(round(h * width / w))
+    new_h -= new_h % 2
+    interp = cv2.INTER_AREA if width < w else cv2.INTER_LINEAR
+    return cv2.resize(frame, (width, new_h), interpolation=interp)

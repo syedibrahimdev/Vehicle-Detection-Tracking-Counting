@@ -10,10 +10,7 @@ paths:
 
 #  Video
 video:
-  frame_skip: 2          # processing every 2nd frame for better speed
-  resize_width: 1280     # processing width
-  resize_height: 720     # processing height
-  fps_output: 30         # output video FPS
+  resize_width: 1280     # processing width; height follows the aspect ratio
 
 # Classical DIP (Phase 1)
 classical:
@@ -30,8 +27,13 @@ classical:
 detection:
   confidence_threshold: 0.4     # Detection confidence threshold (0-1)
   iou_threshold: 0.5            # Non-Maximum Suppression (NMS) overlap threshold
-  input_size: 640               # YOLOv8 input image resolution
+  input_size: 960               # YOLOv8 input image resolution
   device: "cpu"                 # Execution device: "cpu" or "cuda" (for GPU acceleration)
+  allow_pretrained_fallback: false  # true = silently-ish use COCO weights if best.pt is missing
+
+# Tracking
+tracking:
+  tracker: "bytetrack.yaml"     # or "botsort.yaml", or a path to your tuned YAML
 
 # Vehicle Classes
 classes:
@@ -52,6 +54,8 @@ counting:
   line_thickness: 2
   direction_up: "IN"      # Crossing the line moving upwards = IN
   direction_down: "OUT"   # Crossing the line moving downwards = OUT
+  min_track_frames: 3     # a track must be seen this many frames before it can be counted
+  stale_after_frames: 150 # drop per-track state after this many unseen frames
 
 # Visualization
 visualization:
