@@ -1,0 +1,5 @@
+name,model,imgsz,aug,val_map50,val_map50_95,truck_ap50_95,ms_per_img,train_min
+n640_light_929531,yolov8n.pt,640,light,0.6614,0.3602,0.234,2.938,11.5392
+n640_default_929531,yolov8n.pt,640,default,0.6574,0.3586,0.2559,2.6035,10.7544
+s640_default_929531,yolov8s.pt,640,default,0.6954,0.3881,0.2432,5.873,16.5683
+s960_default_929531,yolov8s.pt,960,default,0.7447,0.4242,0.3094,14.2494,34.6742
